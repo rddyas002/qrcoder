@@ -5,7 +5,11 @@ IDE used to test concept/logic: Netbeans - will probably move to Eclipse for ESP
 Protoype involves getting something barebones working first, then optimising. Not using C QR libraries that exist - see references.
 Developing in C for PC first using limited libraries then will port for esp8266 libraries available - I have built the ESP8266 toolchain on my machine, but debugging not configured yet, only capable of generating binaries for the ESP8266. I used the esp-open-sdk for my testing.
 
-Current solution limited to L level error correction and for byte mode only. Also, only up to version 13 - no block splitting. My general approach is to verify basic functionality then build and expand code capability.
+Current solution limited to L level error correction and for byte mode only. Also, only up to version 13 - no block splitting. My general approach is to verify basic functionality then build and expand code capability. 
+
+PC used to test prototype  
+Compiler: gcc-4.4.7  
+Target: x86_64-linux-gnu  
 
 ###### Optimisations:
 - Memory usage - use actual bits instead of bytes to represent byte stream. This was a problem I faced a some time ago when implementing AX25 communications protocol on an STM32F4. The housekeeping is a bit tedious but worthwhile when limited RAM available.

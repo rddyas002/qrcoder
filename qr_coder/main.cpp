@@ -8,10 +8,8 @@
 #include "qrencoder.h"
 
 int main(int argc, char** argv) {
-    char * string = "Hello World";//"Hello world I am testing the version number";
+    char * string = "Hello World";
     
-    // Only doing the byte implementation of encoding
-    // Only low correction level
     generate_qrcode(string);
 
     return 0;

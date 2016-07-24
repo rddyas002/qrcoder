@@ -62,6 +62,8 @@ void append2bitstream(char data, char num_elements, char start_bit){
 void generate_qrcode(char * string){
     int length_bytes = strlen(string);
     
+    printf("String to encode: \"%s\"\r\n", string);
+    
     // determine smallest version to use
     int version = 0;
     int i = 0;
@@ -99,6 +101,7 @@ void generate_qrcode(char * string){
         append2bitstream(string[i],8,0x80);
     }
     
+    printstream();
     printf("Data bits: %d\r\n", bit_counter);
     
     // check if divisible by 8, if not pad
@@ -219,7 +222,7 @@ void drawPatterns(int modules, int version){
 //        QR_module[modules - 11][i] = FORMAT_RESERVE;
 //    }    
 //    
-    
+    /*
     int row, col, col2, x, y;
     char data = 0;
     bool upwards = true;
@@ -255,6 +258,7 @@ void drawPatterns(int modules, int version){
             }
         }
     }
+     */ 
     
 //    for (i = 0; i < data_stream_bytes; i++){
 //        for (j = 0; j < 8; j++){
