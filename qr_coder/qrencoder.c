@@ -160,8 +160,9 @@ void convertBitStream2Bytes(void){
         exit(-1);
     
     int i = 0;
-    for (i = 0; i < bit_counter/8; i++){
-        
+    // go through each byte
+    for (i = 0; i < bit_counter; i++){
+        it_stream
     }
 }
 
