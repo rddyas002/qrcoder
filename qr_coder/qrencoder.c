@@ -5,6 +5,7 @@ int bit_counter = 0;
 
 char polynomial_coefficients[256] = {0};
 char data_stream[256] = {0};
+char error_correction_codes[256] = {0};
 
 const short int version_capacity_byte_mode[40] = {
     17,32,53,78,106,134,154,192,230,271,321,367,425,458,520,586,644,718,792,858,929,1003,1091,1171,1273,1367,1465,1528,1628,1732,1840,1952,2068,2188,2303,2431,2563,2699,2809,2953
@@ -26,6 +27,8 @@ void ReedSolomonGenerator(int degree);
 uint8_t multiply(uint8_t x, uint8_t y);
 void printstream(void);
 void append2bitstream(char data, char num_elements, char start_bit);
+int convertBitStream2Bytes(void);
+void getRemainder(int data_size, int degree);
 
 void printstream(void){
     printf("%s\r\n",bit_stream);
@@ -43,8 +46,8 @@ void append2bitstream(char data, char num_elements, char start_bit){
         
         data <<= 1; // shift data up once
     }
-    printf("bit counter = %d\r\n",bit_counter);
-    printstream();
+//    printf("bit counter = %d\r\n",bit_counter);
+//    printstream();
 }
 
 void generate_qrcode(char * string){
@@ -87,6 +90,8 @@ void generate_qrcode(char * string){
         append2bitstream(string[i],8,0x80);
     }
     
+    printf("Data bits: %d\r\n", bit_counter);
+    
     // check if divisible by 8, if not pad
     char rem = bit_counter % 8;
     for (i = 0; i < rem; i++){
@@ -106,16 +111,28 @@ void generate_qrcode(char * string){
             toggle = !toggle;
         }
     }
+    
+    int num_bytes = convertBitStream2Bytes();
+    // now data_stream has the data in byte format...next append ECC
         
     // get error correction block length
     int block_len = correction_codewords[version - 1]/correction_blocks[version - 1];
     ReedSolomonGenerator(block_len);
     
-    // determine required number of bits for qr code
-    printf("\r\n%d\r\n",version_error_corr_words[version-1]*8);    
+    getRemainder(num_bytes, block_len);
     
-    printf("%d, %d\r\n", version, length_bytes);   
-    //printf("%s\r\nlength: %d\r\n",string,length);   
+    // append ECC
+    memcpy(&data_stream[num_bytes], &error_correction_codes[0], block_len);
+    
+    for (i = 0; i < num_bytes + block_len; i++)
+        printf("0x%.2x ", (uint8_t)data_stream[i]);
+    
+    printf("\r\nTotal: %d bytes, %d bits\r\n", num_bytes + block_len, (num_bytes + block_len)*8);
+//    // determine required number of bits for qr code
+//    printf("\r\n%d\r\n",version_error_corr_words[version-1]*8);    
+//    
+//    printf("%d, %d\r\n", version, length_bytes);
+//    //printf("%s\r\nlength: %d\r\n",string,length);   
 }
 
 // ported from c++ https://github.com/nayuki/QR-Code-generator/tree/master/cpp/QrCode.cpp (line 567))
@@ -136,6 +153,10 @@ void ReedSolomonGenerator(int degree){
     	}
     	root = (root << 1) ^ ((root >> 7) * 0x11D);  // Multiply by 0x02 mod GF(2^8/0x11D)
     }
+    
+//    for (i = 0; i < degree; i++)
+//        printf("0x%x ",(unsigned char)polynomial_coefficients[i]);
+//    printf("\r\n");
 }
 
 // ported from c++ https://github.com/nayuki/QR-Code-generator/tree/master/cpp/QrCode.cpp (line 606))
@@ -153,28 +174,61 @@ uint8_t multiply(uint8_t x, uint8_t y) {
     return (uint8_t)(z);
 }
 
-void convertBitStream2Bytes(void){
+int convertBitStream2Bytes(void){
     // only handle 256 bytes for now
     // TODO: expand make dynamic
     if (bit_counter > 256*8)
         exit(-1);
     
-    int i = 0;
+    int i = 0, j = 0, k = 0x80;
     // go through each byte
-    for (i = 0; i < bit_counter; i++){
-        it_stream
+    for (i = 0; i < bit_counter; i++){      
+        if (bit_stream[i] == '1'){
+            data_stream[j] |= k;
+        }            
+        k >>= 1;        // shift modifying mask down
+        
+        if (k == 0){
+            k = 0x80;   // bit to start modifying
+            j++;
+        }
     }
+    
+    return j;
 }
 
-std::vector<uint8_t> getRemainder(void) {
-	// Compute the remainder by performing polynomial division
-	std::vector<uint8_t> result(coefficients.size());
-	for (size_t i = 0; i < data.size(); i++) {
-		uint8_t factor = data.at(i) ^ result.at(0);
-		result.erase(result.begin());
-		result.push_back(0);
-		for (size_t j = 0; j < result.size(); j++)
-			result.at(j) ^= multiply(coefficients.at(j), factor);
-	}
-	return result;
+void getRemainder(int data_size, int degree) {
+    // Compute the remainder by performing polynomial division
+    
+//    data_stream[0] = 0x12;
+//    data_stream[1] = 0x34;
+//    data_stream[2] = 0x56;
+//    
+//    polynomial_coefficients[0] = 0x0f;
+//    polynomial_coefficients[1] = 0x36;
+//    polynomial_coefficients[2] = 0x78;
+//    polynomial_coefficients[3] = 0x40;
+//
+//    data_size = 3;
+//    
+//    degree = 4;
+    
+    int i = 0, j = 0;
+    for (i = 0; i < data_size; i++) {
+        uint8_t factor = data_stream[i] ^ error_correction_codes[0];
+        
+        // shift error correction codes forward
+        for (j = 0; j < degree - 1; j++){
+            error_correction_codes[j] = error_correction_codes[j + 1];
+        }
+        error_correction_codes[degree - 1] = 0;
+
+	for (j = 0; j < degree; j++)
+            error_correction_codes[j] ^= multiply(polynomial_coefficients[j], factor);
+        
+    }  
+    
+//    for (j = 0; j < degree; j++)
+//        printf("0x%x ",(unsigned char)error_correction_codes[j]);
+//    printf("\r\n");              
 }

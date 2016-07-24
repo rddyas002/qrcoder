@@ -16,7 +16,7 @@ https://github.com/rddyas002
 In particular see https://github.com/rddyas002/MPLABX_ThermalControl which was a big embedded system project - I modified the baseline for thermal control here, but I originally developed it for the helicopter control system - so drivers are for the sensors/actuators.
 
 ###### References:
-Very good libraries that are tried and tested. For a product implementation, best to port this code for ESP8266 and verify.  
+Very good libraries exist that are tried and tested. For a product implementation, it is best to port this code for ESP8266 and verify.  
 C++ library: https://github.com/nayuki/QR-Code-generator/tree/master/cpp  
 c library: https://github.com/fukuchi/libqrencode  
 Get going: http://hackaday.com/2015/03/18/how-to-directly-program-an-inexpensive-esp8266-wifi-module/  
