@@ -3,6 +3,9 @@
 char * bit_stream;
 int bit_counter = 0;
 
+char polynomial_coefficients[256] = {0};
+char data_stream[256] = {0};
+
 const short int version_capacity_byte_mode[40] = {
     17,32,53,78,106,134,154,192,230,271,321,367,425,458,520,586,644,718,792,858,929,1003,1091,1171,1273,1367,1465,1528,1628,1732,1840,1952,2068,2188,2303,2431,2563,2699,2809,2953
 };
@@ -18,6 +21,11 @@ const short int correction_codewords[40] = {
 const short int correction_blocks[40] = {
 	1, 1, 1, 1, 1, 2, 2, 2, 2, 4,  4,  4,  4,  4,  6,  6,  6,  6,  7,  8,  8,  9,  9, 10, 12, 12, 12, 13, 14, 15, 16, 17, 18, 19, 19, 20, 21, 22, 24, 25
 };
+
+void ReedSolomonGenerator(int degree);
+uint8_t multiply(uint8_t x, uint8_t y);
+void printstream(void);
+void append2bitstream(char data, char num_elements, char start_bit);
 
 void printstream(void){
     printf("%s\r\n",bit_stream);
@@ -101,10 +109,71 @@ void generate_qrcode(char * string){
         
     // get error correction block length
     int block_len = correction_codewords[version - 1]/correction_blocks[version - 1];
+    ReedSolomonGenerator(block_len);
     
     // determine required number of bits for qr code
     printf("\r\n%d\r\n",version_error_corr_words[version-1]*8);    
     
     printf("%d, %d\r\n", version, length_bytes);   
     //printf("%s\r\nlength: %d\r\n",string,length);   
+}
+
+// ported from c++ https://github.com/nayuki/QR-Code-generator/tree/master/cpp/QrCode.cpp (line 567))
+void ReedSolomonGenerator(int degree){
+        
+    polynomial_coefficients[degree - 1] = 1;
+    	
+    // coefficient of highest power dropped
+    // rest stored in descending power i.e. polynomial_coefficient[0] corresponds to degree - 1
+    int root = 1;
+    int i,j;
+    for (i = 0; i < degree; i++) {
+    	// Multiply the current product by (x - r^i)
+    	for (j = 0; j < degree; j++) {
+            polynomial_coefficients[j] = multiply(polynomial_coefficients[j], (uint8_t)root);
+            if (j + 1 < degree)
+    		polynomial_coefficients[j] ^= polynomial_coefficients[j + 1];
+    	}
+    	root = (root << 1) ^ ((root >> 7) * 0x11D);  // Multiply by 0x02 mod GF(2^8/0x11D)
+    }
+}
+
+// ported from c++ https://github.com/nayuki/QR-Code-generator/tree/master/cpp/QrCode.cpp (line 606))
+uint8_t multiply(uint8_t x, uint8_t y) {
+    // Russian peasant multiplication
+    int z = 0, i = 0;
+    for (i = 7; i >= 0; i--) {
+    	z = (z << 1) ^ ((z >> 7) * 0x11D);
+	z ^= ((y >> i) & 1) * x;
+    }
+
+    if (z >> 8 != 0)
+        exit(-1);
+       
+    return (uint8_t)(z);
+}
+
+void convertBitStream2Bytes(void){
+    // only handle 256 bytes for now
+    // TODO: expand make dynamic
+    if (bit_counter > 256*8)
+        exit(-1);
+    
+    int i = 0;
+    for (i = 0; i < bit_counter/8; i++){
+        
+    }
+}
+
+std::vector<uint8_t> getRemainder(void) {
+	// Compute the remainder by performing polynomial division
+	std::vector<uint8_t> result(coefficients.size());
+	for (size_t i = 0; i < data.size(); i++) {
+		uint8_t factor = data.at(i) ^ result.at(0);
+		result.erase(result.begin());
+		result.push_back(0);
+		for (size_t j = 0; j < result.size(); j++)
+			result.at(j) ^= multiply(coefficients.at(j), factor);
+	}
+	return result;
 }

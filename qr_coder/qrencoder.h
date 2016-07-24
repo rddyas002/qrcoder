@@ -12,13 +12,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifdef	__cplusplus
 extern "C" {
 #endif
 
-void printstream(void);
-void append2bitstream(char data, char num_elements, char start_bit);
 void generate_qrcode(char * string);
 
 
