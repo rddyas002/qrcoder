@@ -11,6 +11,12 @@ Current solution limited to L level error correction and for byte mode only. Als
 - Memory usage - use actual bits instead of bytes to represent byte stream. This was a problem I faced a some time ago when implementing AX25 communications protocol on an STM32F4. The housekeeping is a bit tedious but worthwhile when limited RAM available.
 - Reed Solomon polynomial generator can be implemented as a table instead of algorithm if sufficient space available on embedded system.
 
+###### Limitations:
+- Limited to level L error correction
+- Limited to byte mode only
+- Not block splitting and interleaving - limited to version 13
+- Alignment not implemented - limited to version 1
+
 Due to time constraints I could not produce the work as I would normally do. Please see some of my other coding projects to get an idea of how I code for abstraction here:
 https://github.com/rddyas002  
 In particular see https://github.com/rddyas002/MPLABX_ThermalControl which was a big embedded system project - I modified the baseline for thermal control here, but I originally developed it for the helicopter control system - so drivers are for the sensors/actuators.

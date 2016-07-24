@@ -1,11 +1,19 @@
 #include "qrencoder.h"
 
+#define PATTERN_RESERVE 2
+#define TIMING_RESERVE 3
+#define DARK_RESERVE 4
+#define FORMAT_RESERVE 10
+
 char * bit_stream;
 int bit_counter = 0;
 
 char polynomial_coefficients[256] = {0};
 char data_stream[256] = {0};
+int data_stream_bytes = 0;
 char error_correction_codes[256] = {0};
+
+char ** QR_module;
 
 const short int version_capacity_byte_mode[40] = {
     17,32,53,78,106,134,154,192,230,271,321,367,425,458,520,586,644,718,792,858,929,1003,1091,1171,1273,1367,1465,1528,1628,1732,1840,1952,2068,2188,2303,2431,2563,2699,2809,2953
@@ -29,6 +37,7 @@ void printstream(void);
 void append2bitstream(char data, char num_elements, char start_bit);
 int convertBitStream2Bytes(void);
 void getRemainder(int data_size, int degree);
+void drawPatterns(int modules, int version);
 
 void printstream(void){
     printf("%s\r\n",bit_stream);
@@ -127,12 +136,160 @@ void generate_qrcode(char * string){
     for (i = 0; i < num_bytes + block_len; i++)
         printf("0x%.2x ", (uint8_t)data_stream[i]);
     
-    printf("\r\nTotal: %d bytes, %d bits\r\n", num_bytes + block_len, (num_bytes + block_len)*8);
-//    // determine required number of bits for qr code
-//    printf("\r\n%d\r\n",version_error_corr_words[version-1]*8);    
+    data_stream_bytes = num_bytes + block_len;
+    printf("\r\nTotal: %d bytes, %d bits\r\n", data_stream_bytes, (num_bytes + block_len)*8);
+
+    // compute number of modules
+    int modules = (version-1)*4+21;
+    printf("QR code size: %d x %d\r\n", modules, modules);
+    
+    // next module placement
+    QR_module = (char **) calloc(modules, sizeof(char *));
+    for (i = 0; i < modules; i++)
+        QR_module[i] = (char *) calloc(modules, sizeof(char));
+    
+    drawPatterns(modules, version);
+}
+
+void drawPatterns(int modules, int version){
+    int i,j;
+    
+    for (i = 0; i < 7; i++){
+        // draw finder pattern top-left
+        QR_module[0][i] = PATTERN_RESERVE;
+        QR_module[6][i] = PATTERN_RESERVE;        // top/bottom row
+        QR_module[i][0] = PATTERN_RESERVE;
+        QR_module[i][6] = PATTERN_RESERVE;        // left/right column
+    
+        // draw finder pattern top-right
+        QR_module[0][modules - 7 + i] = PATTERN_RESERVE;
+        QR_module[6][modules - 7 + i] = PATTERN_RESERVE;          // top/bottom row
+        QR_module[i][modules - 7] = PATTERN_RESERVE;
+        QR_module[i][modules - 1] = PATTERN_RESERVE;              // left/right column        
+    
+        // draw finder pattern bottom-left
+        QR_module[modules - 7][i] = PATTERN_RESERVE;
+        QR_module[modules - 1][i] = PATTERN_RESERVE;              // top/bottom row
+        QR_module[modules - 7 + i][0] = PATTERN_RESERVE;
+        QR_module[modules - 7 + i][6] = PATTERN_RESERVE;          // left/right column        
+    }
+    
+    // draw insides of pattern
+    for (i = 0; i < 3; i++){
+        for (j = 0; j < 3; j++){
+            QR_module[2 + i][2 + j] = PATTERN_RESERVE;
+            QR_module[2 + i][modules -7 + 2 + j] = PATTERN_RESERVE;   
+            QR_module[modules -7 + 2 + i][2 + j] = PATTERN_RESERVE;   
+        }
+    }
+    
+    // TODO: Alignments
+    
+    // Add timing patterns
+    for (i = 7; i < modules - 7; i++){
+        if (!(i % 2)){
+            QR_module[6][i] = TIMING_RESERVE;
+            QR_module[i][6] = TIMING_RESERVE;
+        }
+    }
+    
+    // Add dark module
+    QR_module[4*version+9][8] = DARK_RESERVE;
+    
+    
+    // Add format reserve areas
+    for (i = 0; i < 8; i++){
+        QR_module[8][modules - 8 + i] = FORMAT_RESERVE;
+    }
+    for (i = 0; i < 6; i++){
+        QR_module[8][i] = FORMAT_RESERVE;
+    }    
+    for (i = 0; i < 6; i++){
+        QR_module[i][8] = FORMAT_RESERVE;
+    }        
+    QR_module[7][8] = QR_module[8][7] = QR_module[8][8] = FORMAT_RESERVE;
+    for (i = 0; i < 7; i++){
+        QR_module[modules - 7 + i][8] = FORMAT_RESERVE;
+    }
+    
+// TODO: version 7 and larger must have format area    
+//    for (i = 0; i < 6; i++){
+//        QR_module[modules - 9][i] = FORMAT_RESERVE;
+//        QR_module[modules - 10][i] = FORMAT_RESERVE;
+//        QR_module[modules - 11][i] = FORMAT_RESERVE;
+//    }    
 //    
-//    printf("%d, %d\r\n", version, length_bytes);
-//    //printf("%s\r\nlength: %d\r\n",string,length);   
+    
+    int row, col, col2, x, y;
+    char data = 0;
+    bool upwards = true;
+    j = 0;      // control bit position
+    // add data
+    int byte_stream_index = 0;
+    for (col = modules - 1; col >= 0; col -= 2){
+        for (row = 0; row < modules; row++){
+            for (col2 = 0; col2 < 2; col2++){
+                x = col - col2;
+                if (upwards){                
+                    y = modules - row - 1;
+                    // moving upwards and you hit the top then switch down
+                    if (y == 0)
+                        upwards = false;
+                }
+                else{
+                    y = row;
+                    // moving downwards and you hit the bottom then switch down
+                    if (y == modules)
+                        upwards = true;
+                }
+                
+                if (data_stream[byte_stream_index] & (0x80 >> j++))
+                    data = 1;
+                else
+                    data = 0;
+                if (j == 8){
+                    j = 0;
+                    byte_stream_index++;
+                }
+                QR_module[y][x] = data;
+            }
+        }
+    }
+    
+//    for (i = 0; i < data_stream_bytes; i++){
+//        for (j = 0; j < 8; j++){
+//            if (data_stream[i] & (0x80 >> j))
+//                data = 1;
+//            else
+//                data = 0;
+//            
+//            // placement
+//            QR_module[row][col] = data; 
+//            // check if next column is free
+//            col--;
+//            if (QR_module[row][col] == R)
+//                
+//        }
+//    }
+//    
+//    for (r = modules - 1; r >= 0; r--){
+//        
+//    }
+    
+    // print matrix
+    for (i = 0; i < modules; i++){
+        for (j = 0; j < modules; j++){
+            if ((QR_module[i][j] > 1) && (QR_module[i][j] < 10)){
+                printf("*");
+            }
+            else if (QR_module[i][j] == FORMAT_RESERVE){
+                printf("R");
+            }
+            else
+                printf(" ");
+        }
+        printf("\r\n");
+    }    
 }
 
 // ported from c++ https://github.com/nayuki/QR-Code-generator/tree/master/cpp/QrCode.cpp (line 567))
